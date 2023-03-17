@@ -27,20 +27,23 @@ with rasterio.open(filename) as src:
         # cv2.imwrite('image'+str(i)+'.jpg', img_cv)
         # cv2.waitKey(0)
         # image mask
-        # img_annot = cv2.imread('image_mask.jpg')
-        img_annot = cv2.cvtColor(img_cv, cv2.COLOR_BGR2LAB)
-        lower_limit = (0, 0, 101)
-        upper_limit = (40, 100, 255)
-        mask = cv2.inRange(img_cv, lower_limit, upper_limit)
-        # cv2.imwrite('red_mask.jpg', mask)
+        img_annot = cv2.imread('image_mask2.jpg')
+        img_orig = cv2.imread('./2019-03-19 Images for third miniproject/EB-02-660_0594_0326.jpg')
+        # img_annot = cv2.cvtColor(img_cv, cv2.COLOR_BGR2LAB) testing with cielab
+        lower_limit = (0, 0, 240)
+        upper_limit = (10, 10, 255)
+        mask = cv2.inRange(img_annot, lower_limit, upper_limit)
+        cv2.imwrite('red_mask.jpg', mask)
         # mean, std = cv2.meanStdDev(img_cv, mask=mask)
         # calculate the pixel values into a list
-        pixels = np.reshape(img_cv, (-1, 3))
+        pixels = np.reshape(img_orig, (-1, 3))
         mask_pixels = np.reshape(mask, (-1))
         annot_pix_values = pixels[mask_pixels == 255, ]
         avg = np.average(annot_pix_values, axis=0)  # centroid location
         cov = np.cov(annot_pix_values.transpose())
+
         # calculate mahalanobis distance
+        pixels = np.reshape(img_cv, (-1, 3))
         shape = pixels.shape
         diff = pixels - np.repeat([avg], shape[0], axis=0)
         temp = np.linalg.inv(cov)
@@ -48,27 +51,28 @@ with rasterio.open(filename) as src:
         mahalanobis_distance_image = np.reshape(mahalanobis_dist, (img_cv.shape[0],
                                                                    img_cv.shape[1]))
         mahal_scaled_dist_image = 255 * mahalanobis_distance_image / np.max(mahalanobis_distance_image)
-        cv2.imwrite("orthomosaic_mahalanobis_dist_image.jpg", mahal_scaled_dist_image)
+        cv2.imwrite("orthomosaic_mahalanobis_dist_image"+str(i)+".jpg", mahal_scaled_dist_image)
 
-        _, mahalanobis_segmented = cv2.threshold(mahalanobis_distance_image, 5, 255,
+        _, mahalanobis_segmented = cv2.threshold(mahalanobis_distance_image, 10, 255,
                                                  cv2.THRESH_BINARY_INV)
         mahalanobis_segmented = mahalanobis_segmented.astype(np.uint8)
-        cv2.imwrite("orthomosaic_mahalanobis_dist_segmented.jpg",
+        cv2.imwrite("orthomosaic_mahalanobis_dist_segmented"+str(i)+".jpg",
                     mahalanobis_segmented)
         # finding edges of the orange blobs
-        blobs = cv2.imread("orthomosaic_mahalanobis_dist_segmented.jpg")
+        blobs = cv2.imread("orthomosaic_mahalanobis_dist_segmented"+str(i)+".jpg")
         # applying median filter
-        img = cv2.medianBlur(blobs, 3)
+        img = cv2.medianBlur(mahalanobis_segmented, 3)
         # finding edges of the orange blobs
-        edged = cv2.Canny(img, 101, 200)
-        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        # thres, edged = cv2.threshold(img, 10, 255, cv2.THRESH_BINARY)
+        contours, hierarchy = cv2.findContours(mahalanobis_segmented, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         # amount of contours in filtered image
         count.append(len(contours))
         print(len(contours))
         cv2.drawContours(img_cv, contours, -1, (0, 255, 0), 3)
-        cv2.namedWindow("contours", cv2.WINDOW_NORMAL)
-        cv2.imshow("contours", img_cv)
-        cv2.waitKey(0)
+        # cv2.namedWindow("contours", cv2.WINDOW_NORMAL)
+        # cv2.imshow("contours", img_cv)
+        # cv2.waitKey(0)
+        cv2.imwrite("./output/drawn_pumpkins"+str(i)+".jpg", img_cv)
 
 total = 0
 for x in count:
